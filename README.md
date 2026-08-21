@@ -4,11 +4,20 @@
 
 ## 效果示例
 
-| 切分前 | 切分后 |
-| --- | --- |
-| ![待对齐的 2×4 合成字阵](assets/example-before.svg) | ![切分后的八个合成示意字块](assets/example-after.svg) |
+《北朝墓志全编补编》第 57 页，4×3 字阵：
 
-以上为合成示意；实际导出结果是每个字各自独立的 PNG 文件。
+![《北朝墓志全编补编》第 57 页字阵](assets/example-57-before.png)
+
+切分后，每个字分别导出为独立 PNG：
+
+| 步 | 士 | 大 |
+| --- | --- | --- |
+| ![步](assets/example-57/步_57_北朝墓志全编补编.png) | ![士](assets/example-57/士_57_北朝墓志全编补编.png) | ![大](assets/example-57/大_57_北朝墓志全编补编.png) |
+| ![君](assets/example-57/君_57_北朝墓志全编补编.png) | ![贈](assets/example-57/贈_57_北朝墓志全编补编.png) | ![魏](assets/example-57/魏_57_北朝墓志全编补编.png) |
+| ![墓](assets/example-57/墓_57_北朝墓志全编补编.png) | ![孝](assets/example-57/孝_57_北朝墓志全编补编.png) | ![故](assets/example-57/故_57_北朝墓志全编补编.png) |
+| ![誌](assets/example-57/誌_57_北朝墓志全编补编.png) | ![廉](assets/example-57/廉_57_北朝墓志全编补编.png) | ![處](assets/example-57/處_57_北朝墓志全编补编.png) |
+
+示例文件名采用默认格式，如 `大_57_北朝墓志全编补编.png`。
 
 ## 使用
 
