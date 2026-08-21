@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const { rotatedSize, readingOrder, splitGraphemes, parseSizes, paddingColor, safeFilename, renderTemplate, csvEscape, exportMetadata, resizeGrid, cellBounds, scaleOffsets, scaleGridFromCorner } = require('./core.js');
 assert.deepEqual(rotatedSize(100, 50, 0), { width: 100, height: 50 });
 assert.deepEqual(readingOrder(2, 3, 'vertical'), [{row:0,col:2},{row:1,col:2},{row:0,col:1},{row:1,col:1},{row:0,col:0},{row:1,col:0}]);
+assert.deepEqual(readingOrder(2, 3, 'horizontal'), [{row:0,col:0},{row:0,col:1},{row:0,col:2},{row:1,col:0},{row:1,col:1},{row:1,col:2}]);
 assert.deepEqual(splitGraphemes('字  A\u0301'), ['字', 'A\u0301']);
 assert.deepEqual(parseSizes('original,256,256,0,9000,512'), ['original', '256', '512']);
 assert.equal(paddingColor('transparent', '#abcdef'), null);

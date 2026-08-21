@@ -40,7 +40,8 @@ function draw() {
   ctx.lineWidth = 1.5 / state.zoom; ctx.strokeStyle = '#ff4136'; ctx.setLineDash([6 / state.zoom, 4 / state.zoom]);
   ctx.setLineDash([]); ctx.fillStyle = '#ffec3d'; ctx.font = `${13 / state.zoom}px system-ui`;
   const { rows, cols } = count();
-  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const b = bounds(r, c); ctx.strokeRect(b.left, b.top, b.right - b.left, b.bottom - b.top); ctx.fillText(`${r + 1},${c + 1}`, b.left + 3 / state.zoom, b.top + 14 / state.zoom); }
+  const order = readingOrder(rows, cols, $('direction').value), labels = new Map(order.map(({ row, col }, i) => [cellIndex(row, col), i + 1]));
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const b = bounds(r, c); ctx.strokeRect(b.left, b.top, b.right - b.left, b.bottom - b.top); ctx.fillText(labels.get(cellIndex(r, c)), b.left + 3 / state.zoom, b.top + 14 / state.zoom); }
   if (state.hover?.kind === 'line') { const h = state.hover; ctx.strokeStyle = '#ffdf36'; ctx.lineWidth = 3 / state.zoom; ctx.beginPath(); if (h.axis === 'x') { ctx.moveTo(h.value, h.start); ctx.lineTo(h.value, h.end); } else { ctx.moveTo(h.start, h.value); ctx.lineTo(h.end, h.value); } ctx.stroke(); }
   if (state.hover?.kind === 'corner') { ctx.fillStyle = '#ffdf36'; ctx.beginPath(); ctx.arc(state.hover.x, state.hover.y, 7 / state.zoom, 0, Math.PI * 2); ctx.fill(); }
   ctx.restore();
@@ -124,6 +125,7 @@ $('angleRange').addEventListener('input', e => setAngle(e.target.value)); $('ang
 $('resetGrid').addEventListener('click', makeGrid); $('fit').addEventListener('click', fit);
 function updateCustomBackground() { const custom = $('background').value === 'custom'; $('customBackgroundLabel').classList.toggle('hidden', !custom); $('customBackground').classList.toggle('hidden', !custom); }
 $('background').addEventListener('change', updateCustomBackground); updateCustomBackground();
+$('direction').addEventListener('change', draw);
 $('title').addEventListener('input', saveMetadata); $('book').addEventListener('input', saveMetadata); $('page').addEventListener('input', saveMetadata); restoreMetadata();
 $('fill').addEventListener('click', () => { const chars = splitGraphemes($('paste').value), order = readingOrder(count().rows, count().cols, $('direction').value); state.chars = Array(order.length).fill(''); order.forEach(({ row, col }, i) => { if (chars[i] != null) state.chars[cellIndex(row, col)] = chars[i]; }); renderChars(); const filled = Math.min(chars.length, order.length); status(chars.length === order.length ? `已填入 ${filled}/${order.length} 个字头。` : `已填入 ${filled}/${order.length} 个字头；${chars.length < order.length ? '其余格已清空并需填写' : '多余字头未填入'}。`); });
 
