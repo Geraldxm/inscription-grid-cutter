@@ -1,4 +1,4 @@
-const { rotatedSize, readingOrder, splitGraphemes, parseSizes, renderTemplate, csvEscape, exportMetadata, cellBounds, scaleGridFromCorner } = window.InscriptionCore;
+const { rotatedSize, readingOrder, splitGraphemes, parseSizes, paddingColor, renderTemplate, csvEscape, exportMetadata, cellBounds, scaleGridFromCorner } = window.InscriptionCore;
 
 const $ = id => document.getElementById(id);
 const canvas = $('canvas'), ctx = canvas.getContext('2d'), wrap = $('canvasWrap');
@@ -119,6 +119,8 @@ function setAngle(value) { state.angle = Math.max(-15, Math.min(15, Number(value
 $('angleRange').addEventListener('input', e => setAngle(e.target.value)); $('angle').addEventListener('change', e => setAngle(e.target.value)); document.querySelectorAll('[data-angle]').forEach(b => b.addEventListener('click', () => setAngle(Number(b.dataset.angle) ? state.angle + Number(b.dataset.angle) : 0)));
 ['rows', 'cols'].forEach(id => $(id).addEventListener('change', () => { $(id).value = Math.max(1, Math.min(30, Math.trunc(Number($(id).value)) || 1)); makeGrid(); }));
 $('resetGrid').addEventListener('click', makeGrid); $('fit').addEventListener('click', fit);
+function updateCustomBackground() { const custom = $('background').value === 'custom'; $('customBackgroundLabel').classList.toggle('hidden', !custom); $('customBackground').classList.toggle('hidden', !custom); }
+$('background').addEventListener('change', updateCustomBackground); updateCustomBackground();
 $('title').addEventListener('input', saveMetadata); $('book').addEventListener('input', saveMetadata); $('page').addEventListener('input', saveMetadata); restoreMetadata();
 $('fill').addEventListener('click', () => { const chars = splitGraphemes($('paste').value), order = readingOrder(count().rows, count().cols, $('direction').value); state.chars = Array(order.length).fill(''); order.forEach(({ row, col }, i) => { if (chars[i] != null) state.chars[cellIndex(row, col)] = chars[i]; }); renderChars(); const filled = Math.min(chars.length, order.length); status(chars.length === order.length ? `已填入 ${filled}/${order.length} 个字头。` : `已填入 ${filled}/${order.length} 个字头；${chars.length < order.length ? '其余格已清空并需填写' : '多余字头未填入'}。`); });
 
@@ -126,7 +128,7 @@ function cellCanvas(row, col, size) {
   const b = bounds(row, col), x = b.left, y = b.top, w = b.right - x, h = b.bottom - y;
   const out = document.createElement('canvas');
   if (size === 'original') { out.width = Math.max(1, Math.round(w)); out.height = Math.max(1, Math.round(h)); out.getContext('2d').drawImage(state.base, x, y, w, h, 0, 0, out.width, out.height); }
-  else { const n = Number(size), c = out.getContext('2d'); out.width = out.height = n; c.fillStyle = $('background').value; c.fillRect(0, 0, n, n); const scale = Math.min(n / w, n / h), dw = w * scale, dh = h * scale; c.drawImage(state.base, x, y, w, h, (n - dw) / 2, (n - dh) / 2, dw, dh); }
+  else { const n = Number(size), c = out.getContext('2d'); out.width = out.height = n; const background = paddingColor($('background').value, $('customBackground').value); if (background) { c.fillStyle = background; c.fillRect(0, 0, n, n); } const scale = Math.min(n / w, n / h), dw = w * scale, dh = h * scale; c.drawImage(state.base, x, y, w, h, (n - dw) / 2, (n - dh) / 2, dw, dh); }
   return { out, x, y, w, h };
 }
 async function fileExists(dir, name) { try { await dir.getFileHandle(name); return true; } catch (error) { if (error.name === 'NotFoundError') return false; throw error; } }

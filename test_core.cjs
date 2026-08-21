@@ -1,9 +1,12 @@
 const assert = require('node:assert/strict');
-const { rotatedSize, readingOrder, splitGraphemes, parseSizes, safeFilename, renderTemplate, csvEscape, exportMetadata, resizeGrid, cellBounds, scaleOffsets, scaleGridFromCorner } = require('./core.js');
+const { rotatedSize, readingOrder, splitGraphemes, parseSizes, paddingColor, safeFilename, renderTemplate, csvEscape, exportMetadata, resizeGrid, cellBounds, scaleOffsets, scaleGridFromCorner } = require('./core.js');
 assert.deepEqual(rotatedSize(100, 50, 0), { width: 100, height: 50 });
 assert.deepEqual(readingOrder(2, 3, 'vertical'), [{row:0,col:2},{row:1,col:2},{row:0,col:1},{row:1,col:1},{row:0,col:0},{row:1,col:0}]);
 assert.deepEqual(splitGraphemes('字  A\u0301'), ['字', 'A\u0301']);
 assert.deepEqual(parseSizes('original,256,256,0,9000,512'), ['original', '256', '512']);
+assert.equal(paddingColor('transparent', '#abcdef'), null);
+assert.equal(paddingColor('#f3ead8', '#abcdef'), '#f3ead8');
+assert.equal(paddingColor('custom', '#abcdef'), '#abcdef');
 assert.equal(safeFilename('a/b:*? '), 'a_b___');
 assert.equal(renderTemplate('{char}_{page}_{book}', { char: '石/文', page: 3, book: '碑' }), '石_文_3_碑');
 assert.equal(csvEscape('a,"b"'), '"a,""b"""');
