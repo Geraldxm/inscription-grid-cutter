@@ -13,6 +13,9 @@ function saveMetadata() {
 }
 const count = () => ({ rows: Number($('rows').value), cols: Number($('cols').value) });
 const cellIndex = (row, col) => row * count().cols + col;
+function sequenceMap(rows, cols) {
+  return new Map(readingOrder(rows, cols, $('direction').value).map(({ row, col }, index) => [row * cols + col, index + 1]));
+}
 
 function makeGrid() {
   const { rows, cols } = count();
@@ -37,11 +40,11 @@ function draw() {
   if (!state.image) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.drawImage(state.base, 0, 0);
   ctx.save();
-  ctx.lineWidth = 1.5 / state.zoom; ctx.strokeStyle = '#ff4136'; ctx.setLineDash([6 / state.zoom, 4 / state.zoom]);
-  ctx.setLineDash([]); ctx.fillStyle = '#ffec3d'; ctx.font = `${13 / state.zoom}px system-ui`;
+  ctx.lineWidth = 3.5 / state.zoom; ctx.strokeStyle = '#ff0000'; ctx.setLineDash([8 / state.zoom, 4 / state.zoom]);
+  ctx.fillStyle = '#ff0000'; ctx.font = `800 ${22 / state.zoom}px system-ui`;
   const { rows, cols } = count();
-  const order = readingOrder(rows, cols, $('direction').value), labels = new Map(order.map(({ row, col }, i) => [cellIndex(row, col), i + 1]));
-  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const b = bounds(r, c); ctx.strokeRect(b.left, b.top, b.right - b.left, b.bottom - b.top); ctx.fillText(labels.get(cellIndex(r, c)), b.left + 3 / state.zoom, b.top + 14 / state.zoom); }
+  const labels = sequenceMap(rows, cols);
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const b = bounds(r, c), i = cellIndex(r, c), char = String(state.chars[i] || '').trim(); ctx.strokeRect(b.left, b.top, b.right - b.left, b.bottom - b.top); ctx.fillText(`${labels.get(i)}${char ? ` ${char}` : ''}`, b.left + 6 / state.zoom, b.top + 24 / state.zoom); }
   if (state.hover?.kind === 'line') { const h = state.hover; ctx.strokeStyle = '#ffdf36'; ctx.lineWidth = 3 / state.zoom; ctx.beginPath(); if (h.axis === 'x') { ctx.moveTo(h.value, h.start); ctx.lineTo(h.value, h.end); } else { ctx.moveTo(h.start, h.value); ctx.lineTo(h.end, h.value); } ctx.stroke(); }
   if (state.hover?.kind === 'corner') { ctx.fillStyle = '#ffdf36'; ctx.beginPath(); ctx.arc(state.hover.x, state.hover.y, 7 / state.zoom, 0, Math.PI * 2); ctx.fill(); }
   ctx.restore();
@@ -54,12 +57,12 @@ function fit() {
 }
 
 function renderChars() {
-  const { rows, cols } = count(), body = $('charRows');
+  const { rows, cols } = count(), body = $('charRows'), order = readingOrder(rows, cols, $('direction').value);
   body.innerHTML = '';
-  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+  for (const [sequence, { row: r, col: c }] of order.entries()) {
     const i = cellIndex(r, c), tr = document.createElement('tr'), input = document.createElement('input');
-    input.value = state.chars[i] || ''; input.placeholder = '字头'; input.addEventListener('input', () => { state.chars[i] = input.value; tr.classList.toggle('missing', !input.value.trim()); });
-    tr.classList.toggle('missing', !input.value.trim()); tr.innerHTML = `<td>r${r + 1} c${c + 1}</td>`; const td = document.createElement('td'); td.append(input); tr.append(td); body.append(tr);
+    input.value = state.chars[i] || ''; input.placeholder = '字头'; input.addEventListener('input', () => { state.chars[i] = input.value; tr.classList.toggle('missing', !input.value.trim()); draw(); });
+    tr.classList.toggle('missing', !input.value.trim()); tr.innerHTML = `<td>${sequence + 1} · r${r + 1} c${c + 1}</td>`; const td = document.createElement('td'); td.append(input); tr.append(td); body.append(tr);
   }
 }
 
@@ -125,9 +128,9 @@ $('angleRange').addEventListener('input', e => setAngle(e.target.value)); $('ang
 $('resetGrid').addEventListener('click', makeGrid); $('fit').addEventListener('click', fit);
 function updateCustomBackground() { const custom = $('background').value === 'custom'; $('customBackgroundLabel').classList.toggle('hidden', !custom); $('customBackground').classList.toggle('hidden', !custom); }
 $('background').addEventListener('change', updateCustomBackground); updateCustomBackground();
-$('direction').addEventListener('change', draw);
+$('direction').addEventListener('change', () => { renderChars(); draw(); });
 $('title').addEventListener('input', saveMetadata); $('book').addEventListener('input', saveMetadata); $('page').addEventListener('input', saveMetadata); restoreMetadata();
-$('fill').addEventListener('click', () => { const chars = splitGraphemes($('paste').value), order = readingOrder(count().rows, count().cols, $('direction').value); state.chars = Array(order.length).fill(''); order.forEach(({ row, col }, i) => { if (chars[i] != null) state.chars[cellIndex(row, col)] = chars[i]; }); renderChars(); const filled = Math.min(chars.length, order.length); status(chars.length === order.length ? `已填入 ${filled}/${order.length} 个字头。` : `已填入 ${filled}/${order.length} 个字头；${chars.length < order.length ? '其余格已清空并需填写' : '多余字头未填入'}。`); });
+$('fill').addEventListener('click', () => { const chars = splitGraphemes($('paste').value), order = readingOrder(count().rows, count().cols, $('direction').value); state.chars = Array(order.length).fill(''); order.forEach(({ row, col }, i) => { if (chars[i] != null) state.chars[cellIndex(row, col)] = chars[i]; }); renderChars(); draw(); const filled = Math.min(chars.length, order.length); status(chars.length === order.length ? `已填入 ${filled}/${order.length} 个字头。` : `已填入 ${filled}/${order.length} 个字头；${chars.length < order.length ? '其余格已清空并需填写' : '多余字头未填入'}。`); });
 
 function cellCanvas(row, col, size) {
   const b = bounds(row, col), x = b.left, y = b.top, w = b.right - x, h = b.bottom - y;
@@ -149,9 +152,9 @@ $('export').addEventListener('click', async () => {
   try {
     const root = await window.showDirectoryPicker({ mode: 'readwrite' }), dirs = new Map(), used = new Map();
     for (const size of sizes) { const dir = await root.getDirectoryHandle(size, { create: true }); dirs.set(size, dir); used.set(size, new Set()); }
-    const rows = ['path,char,row,col,seq,size,book_short,book_title,page,note,angle,x,y,width,height']; const { rows: rowCount, cols } = count(); let done = 0, total = rowCount * cols * sizes.length;
+    const rows = ['path,char,row,col,seq,size,book_short,book_title,page,note,angle,x,y,width,height']; const { rows: rowCount, cols } = count(), labels = sequenceMap(rowCount, cols); let done = 0, total = rowCount * cols * sizes.length;
     for (let row = 0; row < rowCount; row++) for (let col = 0; col < cols; col++) for (const size of sizes) {
-      const seq = readingOrder(rowCount, cols, $('direction').value).findIndex(p => p.row === row && p.col === col) + 1;
+      const seq = labels.get(cellIndex(row, col));
       const char = state.chars[cellIndex(row, col)].trim(), values = { char, page: $('page').value.trim(), book: $('book').value.trim(), row: row + 1, col: col + 1, seq, note: $('note').value.trim(), size };
       const { out, x, y, w, h } = cellCanvas(row, col, size), base = renderTemplate($('template').value, values), dir = dirs.get(size);
       const plain = `${base}.png`, collision = used.get(size).has(plain) || await fileExists(dir, plain);
