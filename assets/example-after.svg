@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="430" viewBox="0 0 960 430" role="img" aria-labelledby="title desc">
+  <title id="title">切分后：八个独立碑刻字图片</title>
+  <desc id="desc">八个整齐排列的黑底白字切分结果，每个格子下方有简短文件名。</desc>
+  <rect width="960" height="430" fill="#f5f1e8"/>
+  <text x="42" y="56" fill="#332d26" font-size="28" font-family="serif">切分后：8 个独立 PNG 文件</text>
+  <g fill="#20211f" stroke="#655c51" stroke-width="3">
+    <rect x="42" y="85" width="190" height="120" rx="5"/><rect x="263" y="85" width="190" height="120" rx="5"/><rect x="484" y="85" width="190" height="120" rx="5"/><rect x="705" y="85" width="190" height="120" rx="5"/>
+    <rect x="42" y="255" width="190" height="120" rx="5"/><rect x="263" y="255" width="190" height="120" rx="5"/><rect x="484" y="255" width="190" height="120" rx="5"/><rect x="705" y="255" width="190" height="120" rx="5"/>
+  </g>
+  <g fill="#f3eee2" font-size="88" font-family="serif" text-anchor="middle" dominant-baseline="middle">
+    <text x="137" y="145">碑</text><text x="358" y="145">刻</text><text x="579" y="145">字</text><text x="800" y="145">阵</text>
+    <text x="137" y="315">洛</text><text x="358" y="315">阳</text><text x="579" y="315">新</text><text x="800" y="315">获</text>
+  </g>
+  <g fill="#6a6258" font-size="16" font-family="monospace" text-anchor="middle">
+    <text x="137" y="232">碑_294_洛阳.png</text><text x="358" y="232">刻_294_洛阳.png</text><text x="579" y="232">字_294_洛阳.png</text><text x="800" y="232">阵_294_洛阳.png</text>
+    <text x="137" y="402">洛_294_洛阳.png</text><text x="358" y="402">阳_294_洛阳.png</text><text x="579" y="402">新_294_洛阳.png</text><text x="800" y="402">获_294_洛阳.png</text>
+  </g>
+</svg>

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="430" viewBox="0 0 960 430" role="img" aria-labelledby="title desc">
+  <title id="title">切分前：待对齐的二乘四碑刻字阵</title>
+  <desc id="desc">黑底白字的八个碑刻字，第二行和若干字框有轻微错位。</desc>
+  <rect width="960" height="430" fill="#f5f1e8"/>
+  <text x="42" y="56" fill="#332d26" font-size="28" font-family="serif">切分前：手动将网格套到字阵</text>
+  <rect x="42" y="82" width="876" height="298" rx="8" fill="#1f201e" stroke="#655c51" stroke-width="4"/>
+  <g fill="none" stroke="#ded6c5" stroke-width="4" opacity=".85">
+    <rect x="84" y="116" width="176" height="112"/>
+    <rect x="276" y="109" width="176" height="119"/>
+    <rect x="469" y="120" width="176" height="108"/>
+    <rect x="661" y="111" width="176" height="117"/>
+    <rect x="80" y="244" width="176" height="110"/>
+    <rect x="276" y="238" width="176" height="119"/>
+    <rect x="464" y="248" width="176" height="108"/>
+    <rect x="658" y="240" width="176" height="117"/>
+  </g>
+  <g fill="#f3eee2" font-size="92" font-family="serif" text-anchor="middle" dominant-baseline="middle">
+    <text x="172" y="173">碑</text>
+    <text x="364" y="166">刻</text>
+    <text x="557" y="176">字</text>
+    <text x="749" y="167">阵</text>
+    <text x="168" y="298">洛</text>
+    <text x="364" y="296">阳</text>
+    <text x="552" y="302">新</text>
+    <text x="746" y="299">获</text>
+  </g>
+  <g fill="#b9af9e" opacity=".6">
+    <circle cx="72" cy="102" r="3"/><circle cx="866" cy="125" r="4"/><circle cx="445" cy="349" r="3"/><circle cx="899" cy="340" r="2"/>
+  </g>
+  <text x="42" y="412" fill="#6a6258" font-size="20" font-family="sans-serif">合成示意：字框和上下行轻微错位，需要人工对齐。</text>
+</svg>
