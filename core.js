@@ -24,6 +24,7 @@
       if (!valid || seen.has(x)) return false; seen.add(x); return true;
     });
   }
+  function paddingColor(background, custom) { return background === 'transparent' ? null : background === 'custom' ? custom : background; }
   function safeFilename(value) { return String(value || '').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').replace(/\s+/g, ' ').trim().replace(/[. ]+$/, '') || 'untitled'; }
   function renderTemplate(template, values) { return safeFilename(String(template || '').replace(/\{(char|page|book|row|col|seq|note|size)\}/g, (_, k) => values[k] ?? '')); }
   function csvEscape(value) { const text = String(value ?? ''); return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text; }
@@ -48,5 +49,5 @@
     const nextXs = xs.map(value => fixedX + (value - fixedX) * scaleX), nextYs = ys.map(value => fixedY + (value - fixedY) * scaleY), offsets = scaleOffsets(localX, localY, scaleX, scaleY);
     return { xs: nextXs, ys: nextYs, ...offsets };
   }
-  return { rotatedSize, readingOrder, splitGraphemes, parseSizes, safeFilename, renderTemplate, csvEscape, exportMetadata, resizeGrid, cellBounds, scaleOffsets, scaleGridFromCorner };
+  return { rotatedSize, readingOrder, splitGraphemes, parseSizes, paddingColor, safeFilename, renderTemplate, csvEscape, exportMetadata, resizeGrid, cellBounds, scaleOffsets, scaleGridFromCorner };
 });
