@@ -76,15 +76,17 @@ function hitTest(p) {
   return null;
 }
 canvas.addEventListener('pointerdown', event => {
-  if (!state.image) return; const hit = hitTest(point(event)); if (!hit) return;
-  if (hit.kind === 'corner') state.drag = { type: 'scale', ...hit, xs: [...state.xs], ys: [...state.ys], localX: state.localX.map(row => [...row]), localY: state.localY.map(col => [...col]) };
-  else if (hit.kind === 'move') state.drag = { type: 'move', start: point(event), xs: [...state.xs], ys: [...state.ys] };
-  else state.drag = event.altKey ? { type: `${hit.axis}local`, ...hit } : { type: hit.axis, ...hit };
+  if (!state.image) return; const hit = hitTest(point(event));
+  if (hit?.kind === 'corner') state.drag = { type: 'scale', ...hit, xs: [...state.xs], ys: [...state.ys], localX: state.localX.map(row => [...row]), localY: state.localY.map(col => [...col]) };
+  else if (hit?.kind === 'move') state.drag = { type: 'move', start: point(event), xs: [...state.xs], ys: [...state.ys] };
+  else if (hit) state.drag = event.altKey ? { type: `${hit.axis}local`, ...hit } : { type: hit.axis, ...hit };
+  else { state.drag = { type: 'pan', x: event.clientX, y: event.clientY, left: wrap.scrollLeft, top: wrap.scrollTop }; canvas.style.cursor = 'grabbing'; }
   canvas.setPointerCapture(event.pointerId);
 });
 canvas.addEventListener('pointermove', event => {
-  const p = point(event); if (!state.drag) { state.hover = hitTest(p); canvas.style.cursor = state.hover?.cursor || 'default'; draw(); return; }
+  const p = point(event); if (!state.drag) { state.hover = hitTest(p); canvas.style.cursor = state.hover?.cursor || 'grab'; draw(); return; }
   const d = state.drag;
+  if (d.type === 'pan') { wrap.scrollLeft = d.left - (event.clientX - d.x); wrap.scrollTop = d.top - (event.clientY - d.y); return; }
   if (d.type === 'x') { const lo = Math.max(...state.localX.map(offsets => state.xs[d.line - 1] + offsets[d.line - 1] + 2 - offsets[d.line])), hi = Math.min(...state.localX.map(offsets => state.xs[d.line + 1] + offsets[d.line + 1] - 2 - offsets[d.line])); state.xs[d.line] = Math.max(lo, Math.min(hi, p.x - state.localX[d.row][d.line])); }
   else if (d.type === 'y') { const lo = Math.max(...state.localY.map(offsets => state.ys[d.line - 1] + offsets[d.line - 1] + 2 - offsets[d.line])), hi = Math.min(...state.localY.map(offsets => state.ys[d.line + 1] + offsets[d.line + 1] - 2 - offsets[d.line])); state.ys[d.line] = Math.max(lo, Math.min(hi, p.y - state.localY[d.col][d.line])); }
   else if (d.type === 'xlocal') { const lo = state.xs[d.line - 1] + state.localX[d.row][d.line - 1] + 2, hi = state.xs[d.line + 1] + state.localX[d.row][d.line + 1] - 2; state.localX[d.row][d.line] = Math.max(lo, Math.min(hi, p.x)) - state.xs[d.line]; }
@@ -93,8 +95,9 @@ canvas.addEventListener('pointermove', event => {
   else ({ xs: state.xs, ys: state.ys, localX: state.localX, localY: state.localY } = scaleGridFromCorner(d.xs, d.ys, d.localX, d.localY, d.corner, p.x, p.y, canvas.width, canvas.height));
   draw();
 });
-canvas.addEventListener('pointerup', () => { state.drag = null; });
-canvas.addEventListener('pointercancel', () => { state.drag = null; });
+function endDrag(event) { state.drag = null; state.hover = state.image && event ? hitTest(point(event)) : null; canvas.style.cursor = state.hover?.cursor || (state.image ? 'grab' : 'default'); if (state.image) draw(); }
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
 canvas.addEventListener('wheel', event => { if (!state.image) return; event.preventDefault(); state.zoom = Math.max(.1, Math.min(4, state.zoom * (event.deltaY > 0 ? .9 : 1.1))); canvas.style.width = `${canvas.width * state.zoom}px`; canvas.style.height = `${canvas.height * state.zoom}px`; draw(); }, { passive: false });
 
 const imageTypes = new Set(['image/png', 'image/jpeg', 'image/webp']);
