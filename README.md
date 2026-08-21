@@ -10,12 +10,9 @@
 
 切分后，每个字分别导出为独立 PNG：
 
-| 步 | 士 | 大 |
+| 大 | 士 | 步 |
 | --- | --- | --- |
-| ![步](assets/example-57/步_57_北朝墓志全编补编.png) | ![士](assets/example-57/士_57_北朝墓志全编补编.png) | ![大](assets/example-57/大_57_北朝墓志全编补编.png) |
-| ![君](assets/example-57/君_57_北朝墓志全编补编.png) | ![贈](assets/example-57/贈_57_北朝墓志全编补编.png) | ![魏](assets/example-57/魏_57_北朝墓志全编补编.png) |
-| ![墓](assets/example-57/墓_57_北朝墓志全编补编.png) | ![孝](assets/example-57/孝_57_北朝墓志全编补编.png) | ![故](assets/example-57/故_57_北朝墓志全编补编.png) |
-| ![誌](assets/example-57/誌_57_北朝墓志全编补编.png) | ![廉](assets/example-57/廉_57_北朝墓志全编补编.png) | ![處](assets/example-57/處_57_北朝墓志全编补编.png) |
+| ![大](assets/example-57/大_57_北朝墓志全编补编.png) | ![士](assets/example-57/士_57_北朝墓志全编补编.png) | ![步](assets/example-57/步_57_北朝墓志全编补编.png) |
 
 示例文件名采用默认格式，如 `大_57_北朝墓志全编补编.png`。
 
