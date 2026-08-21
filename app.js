@@ -2,7 +2,7 @@ const { rotatedSize, readingOrder, splitGraphemes, parseSizes, paddingColor, ren
 
 const $ = id => document.getElementById(id);
 const canvas = $('canvas'), ctx = canvas.getContext('2d'), wrap = $('canvasWrap');
-const state = { image: null, base: document.createElement('canvas'), angle: 0, zoom: 1, xs: [], ys: [], localX: [], localY: [], chars: [], drag: null, hover: null };
+const state = { image: null, base: document.createElement('canvas'), aligned: document.createElement('canvas'), angle: 0, zoom: 1, imageZoom: 1, xs: [], ys: [], localX: [], localY: [], chars: [], drag: null, hover: null };
 const status = message => $('status').textContent = message;
 const metadataKey = 'inscription-grid-cutter.metadata.v1';
 function restoreMetadata() {
@@ -30,21 +30,30 @@ function makeGrid() {
 function renderImage(resetGrid = false) {
   if (!state.image) return;
   const { width, height } = rotatedSize(state.image.naturalWidth, state.image.naturalHeight, state.angle);
-  state.base.width = canvas.width = width; state.base.height = canvas.height = height;
+  state.base.width = state.aligned.width = canvas.width = width; state.base.height = state.aligned.height = canvas.height = height;
   const baseCtx = state.base.getContext('2d'); baseCtx.imageSmoothingEnabled = true; baseCtx.imageSmoothingQuality = 'high'; baseCtx.translate(width / 2, height / 2); baseCtx.rotate(state.angle * Math.PI / 180);
   baseCtx.drawImage(state.image, -state.image.naturalWidth / 2, -state.image.naturalHeight / 2);
   if (resetGrid || !state.xs.length) makeGrid(); else draw();
 }
 
+function drawAlignedImage() {
+  const aligned = state.aligned.getContext('2d'), width = canvas.width, height = canvas.height, zoom = state.imageZoom;
+  aligned.clearRect(0, 0, width, height);
+  aligned.drawImage(state.base, width * (1 - zoom) / 2, height * (1 - zoom) / 2, width * zoom, height * zoom);
+}
+
 function draw() {
   if (!state.image) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.drawImage(state.base, 0, 0);
+  drawAlignedImage(); ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.drawImage(state.aligned, 0, 0);
   ctx.save();
-  ctx.lineWidth = 3.5 / state.zoom; ctx.strokeStyle = '#ff0000'; ctx.setLineDash([8 / state.zoom, 4 / state.zoom]);
-  ctx.fillStyle = '#ff0000'; ctx.font = `800 ${22 / state.zoom}px system-ui`;
+  ctx.lineWidth = 3.5 / state.zoom; ctx.strokeStyle = $('gridColor').value; ctx.globalAlpha = Number($('gridOpacity').value); ctx.setLineDash([8 / state.zoom, 4 / state.zoom]);
+  ctx.fillStyle = $('gridColor').value; ctx.font = `800 ${22 / state.zoom}px system-ui`;
   const { rows, cols } = count();
   const labels = sequenceMap(rows, cols);
-  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const b = bounds(r, c), i = cellIndex(r, c), char = String(state.chars[i] || '').trim(); ctx.strokeRect(b.left, b.top, b.right - b.left, b.bottom - b.top); ctx.fillText(`${labels.get(i)}${char ? ` ${char}` : ''}`, b.left + 6 / state.zoom, b.top + 24 / state.zoom); }
+  ctx.beginPath();
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const b = bounds(r, c), i = cellIndex(r, c), char = String(state.chars[i] || '').trim(); ctx.moveTo(b.left, b.top); ctx.lineTo(b.right, b.top); ctx.moveTo(b.left, b.top); ctx.lineTo(b.left, b.bottom); if (r === rows - 1) { ctx.moveTo(b.left, b.bottom); ctx.lineTo(b.right, b.bottom); } if (c === cols - 1) { ctx.moveTo(b.right, b.top); ctx.lineTo(b.right, b.bottom); } ctx.fillText(`${labels.get(i)}${char ? ` ${char}` : ''}`, b.left + 6 / state.zoom, b.top + 24 / state.zoom); }
+  ctx.stroke();
+  ctx.globalAlpha = 1;
   if (state.hover?.kind === 'line') { const h = state.hover; ctx.strokeStyle = '#ffdf36'; ctx.lineWidth = 3 / state.zoom; ctx.beginPath(); if (h.axis === 'x') { ctx.moveTo(h.value, h.start); ctx.lineTo(h.value, h.end); } else { ctx.moveTo(h.start, h.value); ctx.lineTo(h.end, h.value); } ctx.stroke(); }
   if (state.hover?.kind === 'corner') { ctx.fillStyle = '#ffdf36'; ctx.beginPath(); ctx.arc(state.hover.x, state.hover.y, 7 / state.zoom, 0, Math.PI * 2); ctx.fill(); }
   ctx.restore();
@@ -102,13 +111,13 @@ canvas.addEventListener('pointermove', event => {
 function endDrag(event) { state.drag = null; state.hover = state.image && event ? hitTest(point(event)) : null; canvas.style.cursor = state.hover?.cursor || (state.image ? 'grab' : 'default'); if (state.image) draw(); }
 canvas.addEventListener('pointerup', endDrag);
 canvas.addEventListener('pointercancel', endDrag);
-canvas.addEventListener('wheel', event => { if (!state.image) return; event.preventDefault(); state.zoom = Math.max(.1, Math.min(4, state.zoom * (event.deltaY > 0 ? .9 : 1.1))); canvas.style.width = `${canvas.width * state.zoom}px`; canvas.style.height = `${canvas.height * state.zoom}px`; draw(); }, { passive: false });
+canvas.addEventListener('wheel', event => { if (!state.image) return; event.preventDefault(); state.imageZoom = Math.max(.1, Math.min(4, state.imageZoom * (event.deltaY > 0 ? .9 : 1.1))); draw(); }, { passive: false });
 
 const imageTypes = new Set(['image/png', 'image/jpeg', 'image/webp']);
 function loadImageFile(file, displayName = file && file.name) {
   if (!file || !imageTypes.has(file.type)) return status('仅支持 PNG、JPEG 或 WebP 图片。');
   const url = URL.createObjectURL(file), image = new Image();
-  image.onload = () => { URL.revokeObjectURL(url); state.image = image; state.chars = []; $('paste').value = ''; $('note').value = ''; state.angle = 0; $('angle').value = $('angleRange').value = 0; renderImage(true); fit(); status(`已载入：${displayName || '粘贴图片'}（${image.naturalWidth}×${image.naturalHeight}）`); };
+  image.onload = () => { URL.revokeObjectURL(url); state.image = image; state.chars = []; $('paste').value = ''; $('note').value = ''; state.angle = 0; state.imageZoom = 1; $('angle').value = $('angleRange').value = 0; renderImage(true); fit(); status(`已载入：${displayName || '粘贴图片'}（${image.naturalWidth}×${image.naturalHeight}）`); };
   image.onerror = () => { URL.revokeObjectURL(url); status('图片加载失败，请换一张 PNG、JPEG 或 WebP。'); };
   image.src = url;
 }
@@ -122,21 +131,23 @@ function hasFiles(event) { return [...(event.dataTransfer?.types || [])].include
 wrap.addEventListener('dragover', event => { if (hasFiles(event)) { event.preventDefault(); wrap.classList.add('dragover'); } });
 wrap.addEventListener('dragleave', () => wrap.classList.remove('dragover'));
 wrap.addEventListener('drop', event => { if (!hasFiles(event)) return; event.preventDefault(); wrap.classList.remove('dragover'); loadImageFile([...event.dataTransfer.files].find(file => imageTypes.has(file.type)) || event.dataTransfer.files[0]); });
-function setAngle(value) { state.angle = Math.max(-15, Math.min(15, Number(value) || 0)); $('angle').value = $('angleRange').value = state.angle; renderImage(true); fit(); if (state.image) status('旋转已应用，网格已重置。'); }
+function setAngle(value) { state.angle = Math.max(-15, Math.min(15, Number(value) || 0)); state.imageZoom = 1; $('angle').value = $('angleRange').value = state.angle; renderImage(true); fit(); if (state.image) status('旋转已应用，网格已重置。'); }
 $('angleRange').addEventListener('input', e => setAngle(e.target.value)); $('angle').addEventListener('change', e => setAngle(e.target.value)); document.querySelectorAll('[data-angle]').forEach(b => b.addEventListener('click', () => setAngle(Number(b.dataset.angle) ? state.angle + Number(b.dataset.angle) : 0)));
 ['rows', 'cols'].forEach(id => $(id).addEventListener('change', () => { $(id).value = Math.max(1, Math.min(30, Math.trunc(Number($(id).value)) || 1)); makeGrid(); }));
 $('resetGrid').addEventListener('click', makeGrid); $('fit').addEventListener('click', fit);
 function updateCustomBackground() { const custom = $('background').value === 'custom'; $('customBackgroundLabel').classList.toggle('hidden', !custom); $('customBackground').classList.toggle('hidden', !custom); }
 $('background').addEventListener('change', updateCustomBackground); updateCustomBackground();
+$('gridColor').addEventListener('input', draw); $('gridOpacity').addEventListener('input', draw);
 $('direction').addEventListener('change', () => { renderChars(); draw(); });
 $('title').addEventListener('input', saveMetadata); $('book').addEventListener('input', saveMetadata); $('page').addEventListener('input', saveMetadata); restoreMetadata();
 $('fill').addEventListener('click', () => { const chars = splitGraphemes($('paste').value), order = readingOrder(count().rows, count().cols, $('direction').value); state.chars = Array(order.length).fill(''); order.forEach(({ row, col }, i) => { if (chars[i] != null) state.chars[cellIndex(row, col)] = chars[i]; }); renderChars(); draw(); const filled = Math.min(chars.length, order.length); status(chars.length === order.length ? `已填入 ${filled}/${order.length} 个字头。` : `已填入 ${filled}/${order.length} 个字头；${chars.length < order.length ? '其余格已清空并需填写' : '多余字头未填入'}。`); });
 
 function cellCanvas(row, col, size) {
   const b = bounds(row, col), x = b.left, y = b.top, w = b.right - x, h = b.bottom - y;
+  drawAlignedImage();
   const out = document.createElement('canvas');
-  if (size === 'original') { out.width = Math.max(1, Math.round(w)); out.height = Math.max(1, Math.round(h)); out.getContext('2d').drawImage(state.base, x, y, w, h, 0, 0, out.width, out.height); }
-  else { const n = Number(size), c = out.getContext('2d'); out.width = out.height = n; const background = paddingColor($('background').value, $('customBackground').value); if (background) { c.fillStyle = background; c.fillRect(0, 0, n, n); } const scale = Math.min(n / w, n / h), dw = w * scale, dh = h * scale; c.drawImage(state.base, x, y, w, h, (n - dw) / 2, (n - dh) / 2, dw, dh); }
+  if (size === 'original') { out.width = Math.max(1, Math.round(w)); out.height = Math.max(1, Math.round(h)); out.getContext('2d').drawImage(state.aligned, x, y, w, h, 0, 0, out.width, out.height); }
+  else { const n = Number(size), c = out.getContext('2d'); out.width = out.height = n; const background = paddingColor($('background').value, $('customBackground').value); if (background) { c.fillStyle = background; c.fillRect(0, 0, n, n); } const scale = Math.min(n / w, n / h), dw = w * scale, dh = h * scale; c.drawImage(state.aligned, x, y, w, h, (n - dw) / 2, (n - dh) / 2, dw, dh); }
   return { out, x, y, w, h };
 }
 async function fileExists(dir, name) { try { await dir.getFileHandle(name); return true; } catch (error) { if (error.name === 'NotFoundError') return false; throw error; } }
