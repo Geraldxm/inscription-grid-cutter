@@ -29,6 +29,10 @@
   function renderTemplate(template, values) { return safeFilename(String(template || '').replace(/\{(char|page|book|row|col|seq|note|size)\}/g, (_, k) => values[k] ?? '')); }
   function csvEscape(value) { const text = String(value ?? ''); return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text; }
   function exportMetadata(value) { return { title: String(value.title || ''), book: String(value.book || ''), page: String(value.page || '') }; }
+  function expandWorkspaceBounds(width, height, imageX, imageY, imageWidth, imageHeight) {
+    const shiftX = imageX < 0 ? Math.ceil(-imageX) : 0, shiftY = imageY < 0 ? Math.ceil(-imageY) : 0;
+    return { width: Math.ceil(Math.max(width + shiftX, imageX + shiftX + imageWidth)), height: Math.ceil(Math.max(height + shiftY, imageY + shiftY + imageHeight)), shiftX, shiftY };
+  }
   function resizeGrid(xs, ys, corner, x, y, canvasWidth, canvasHeight, minCell = 2) {
     const oldLeft = xs[0], oldRight = xs.at(-1), oldTop = ys[0], oldBottom = ys.at(-1), minWidth = (xs.length - 1) * minCell, minHeight = (ys.length - 1) * minCell;
     let left = oldLeft, right = oldRight, top = oldTop, bottom = oldBottom;
@@ -39,6 +43,7 @@
     return { xs: xs.map(v => left + (v - oldLeft) / (oldRight - oldLeft) * (right - left)), ys: ys.map(v => top + (v - oldTop) / (oldBottom - oldTop) * (bottom - top)) };
   }
   function cellBounds(xs, ys, localX, localY, row, col) { return { left: xs[col] + localX[row][col], right: xs[col + 1] + localX[row][col + 1], top: ys[row] + localY[col][row], bottom: ys[row + 1] + localY[col][row + 1] }; }
+  function applyLockedOffsets(lines, offsets, locks) { return offsets.map((segment, segmentIndex) => segment.map((offset, lineIndex) => locks[segmentIndex][lineIndex] == null ? offset : locks[segmentIndex][lineIndex] - lines[lineIndex])); }
   function scaleOffsets(localX, localY, scaleX, scaleY) { return { localX: localX.map(row => row.map(value => value * scaleX)), localY: localY.map(col => col.map(value => value * scaleY)) }; }
   function scaleGridFromCorner(xs, ys, localX, localY, corner, x, y, canvasWidth, canvasHeight, minCell = 2) {
     const raw = resizeGrid(xs, ys, corner, x, y, canvasWidth, canvasHeight, minCell), oldWidth = xs.at(-1) - xs[0], oldHeight = ys.at(-1) - ys[0];
@@ -49,5 +54,5 @@
     const nextXs = xs.map(value => fixedX + (value - fixedX) * scaleX), nextYs = ys.map(value => fixedY + (value - fixedY) * scaleY), offsets = scaleOffsets(localX, localY, scaleX, scaleY);
     return { xs: nextXs, ys: nextYs, ...offsets };
   }
-  return { rotatedSize, readingOrder, splitGraphemes, parseSizes, paddingColor, safeFilename, renderTemplate, csvEscape, exportMetadata, resizeGrid, cellBounds, scaleOffsets, scaleGridFromCorner };
+  return { rotatedSize, readingOrder, splitGraphemes, parseSizes, paddingColor, safeFilename, renderTemplate, csvEscape, exportMetadata, expandWorkspaceBounds, resizeGrid, cellBounds, applyLockedOffsets, scaleOffsets, scaleGridFromCorner };
 });

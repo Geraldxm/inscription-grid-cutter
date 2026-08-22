@@ -1,8 +1,8 @@
-const { rotatedSize, readingOrder, splitGraphemes, parseSizes, paddingColor, renderTemplate, csvEscape, exportMetadata, cellBounds, scaleGridFromCorner } = window.InscriptionCore;
+const { rotatedSize, readingOrder, splitGraphemes, parseSizes, paddingColor, renderTemplate, csvEscape, exportMetadata, expandWorkspaceBounds, cellBounds, applyLockedOffsets, scaleGridFromCorner } = window.InscriptionCore;
 
 const $ = id => document.getElementById(id);
 const canvas = $('canvas'), ctx = canvas.getContext('2d'), wrap = $('canvasWrap');
-const state = { image: null, base: document.createElement('canvas'), aligned: document.createElement('canvas'), angle: 0, zoom: 1, imageZoom: 1, xs: [], ys: [], localX: [], localY: [], chars: [], drag: null, hover: null };
+const state = { image: null, base: document.createElement('canvas'), aligned: document.createElement('canvas'), angle: 0, zoom: 1, imageZoom: 1, imageX: 0, imageY: 0, xs: [], ys: [], localX: [], localY: [], lockedX: [], lockedY: [], chars: [], drag: null, hover: null };
 const status = message => $('status').textContent = message;
 const metadataKey = 'inscription-grid-cutter.metadata.v1';
 function restoreMetadata() {
@@ -19,10 +19,13 @@ function sequenceMap(rows, cols) {
 
 function makeGrid() {
   const { rows, cols } = count();
-  state.xs = Array.from({ length: cols + 1 }, (_, i) => canvas.width * i / cols);
-  state.ys = Array.from({ length: rows + 1 }, (_, i) => canvas.height * i / rows);
+  const left = state.image ? state.imageX : 0, top = state.image ? state.imageY : 0, width = state.image ? state.base.width * state.imageZoom : canvas.width, height = state.image ? state.base.height * state.imageZoom : canvas.height;
+  state.xs = Array.from({ length: cols + 1 }, (_, i) => left + width * i / cols);
+  state.ys = Array.from({ length: rows + 1 }, (_, i) => top + height * i / rows);
   state.localX = Array.from({ length: rows }, () => Array(cols + 1).fill(0));
   state.localY = Array.from({ length: cols }, () => Array(rows + 1).fill(0));
+  state.lockedX = Array.from({ length: rows }, () => Array(cols + 1).fill(null));
+  state.lockedY = Array.from({ length: cols }, () => Array(rows + 1).fill(null));
   state.chars = Array.from({ length: rows * cols }, (_, i) => state.chars[i] || '');
   renderChars(); draw();
 }
@@ -39,7 +42,24 @@ function renderImage(resetGrid = false) {
 function drawAlignedImage() {
   const aligned = state.aligned.getContext('2d'), width = canvas.width, height = canvas.height, zoom = state.imageZoom;
   aligned.clearRect(0, 0, width, height);
-  aligned.drawImage(state.base, width * (1 - zoom) / 2, height * (1 - zoom) / 2, width * zoom, height * zoom);
+  aligned.drawImage(state.base, state.imageX, state.imageY, state.base.width * zoom, state.base.height * zoom);
+}
+
+function expandWorkspaceToImage(drag = null) {
+  const next = expandWorkspaceBounds(canvas.width, canvas.height, state.imageX, state.imageY, state.base.width * state.imageZoom, state.base.height * state.imageZoom);
+  if (next.width === canvas.width && next.height === canvas.height) return next;
+  const oldScrollLeft = wrap.scrollLeft, oldScrollTop = wrap.scrollTop, targetScrollLeft = oldScrollLeft + next.shiftX * state.zoom, targetScrollTop = oldScrollTop + next.shiftY * state.zoom;
+  const width = Math.max(next.width, next.shiftX ? Math.ceil((targetScrollLeft + wrap.clientWidth + 1) / state.zoom) : 0), height = Math.max(next.height, next.shiftY ? Math.ceil((targetScrollTop + wrap.clientHeight + 1) / state.zoom) : 0);
+  canvas.width = state.aligned.width = width; canvas.height = state.aligned.height = height;
+  state.imageX += next.shiftX; state.imageY += next.shiftY;
+  state.xs = state.xs.map(x => x + next.shiftX); state.ys = state.ys.map(y => y + next.shiftY);
+  state.lockedX = state.lockedX.map(row => row.map(value => value == null ? null : value + next.shiftX));
+  state.lockedY = state.lockedY.map(col => col.map(value => value == null ? null : value + next.shiftY));
+  canvas.style.width = `${canvas.width * state.zoom}px`; canvas.style.height = `${canvas.height * state.zoom}px`;
+  wrap.scrollLeft = targetScrollLeft; wrap.scrollTop = targetScrollTop;
+  if (drag?.type === 'image') { drag.start.x += (wrap.scrollLeft - oldScrollLeft) / state.zoom; drag.start.y += (wrap.scrollTop - oldScrollTop) / state.zoom; drag.imageX += next.shiftX; drag.imageY += next.shiftY; }
+  state.hover = null;
+  return next;
 }
 
 function draw() {
@@ -90,34 +110,36 @@ function hitTest(p) {
 }
 canvas.addEventListener('pointerdown', event => {
   if (!state.image) return; const hit = hitTest(point(event));
-  if (hit?.kind === 'corner') state.drag = { type: 'scale', ...hit, xs: [...state.xs], ys: [...state.ys], localX: state.localX.map(row => [...row]), localY: state.localY.map(col => [...col]) };
-  else if (hit?.kind === 'move') state.drag = { type: 'move', start: point(event), xs: [...state.xs], ys: [...state.ys] };
+  if (hit?.kind === 'corner') state.drag = { type: 'scale', ...hit, xs: [...state.xs], ys: [...state.ys], localX: state.localX.map(row => [...row]), localY: state.localY.map(col => [...col]), lockedX: state.lockedX.map(row => [...row]), lockedY: state.lockedY.map(col => [...col]) };
+  else if (hit?.kind === 'move') state.drag = { type: 'move', start: point(event), xs: [...state.xs], ys: [...state.ys], lockedX: state.lockedX.map(row => [...row]), lockedY: state.lockedY.map(col => [...col]) };
   else if (hit) state.drag = event.altKey ? { type: `${hit.axis}local`, ...hit } : { type: hit.axis, ...hit };
-  else { state.drag = { type: 'pan', x: event.clientX, y: event.clientY, left: wrap.scrollLeft, top: wrap.scrollTop }; canvas.style.cursor = 'grabbing'; }
+  else { const p = point(event); state.drag = { type: 'image', start: p, imageX: state.imageX, imageY: state.imageY }; canvas.style.cursor = 'grabbing'; }
   canvas.setPointerCapture(event.pointerId);
 });
 canvas.addEventListener('pointermove', event => {
   const p = point(event); if (!state.drag) { state.hover = hitTest(p); canvas.style.cursor = state.hover?.cursor || 'grab'; draw(); return; }
   const d = state.drag;
-  if (d.type === 'pan') { wrap.scrollLeft = d.left - (event.clientX - d.x); wrap.scrollTop = d.top - (event.clientY - d.y); return; }
-  if (d.type === 'x') { const lo = Math.max(...state.localX.map(offsets => state.xs[d.line - 1] + offsets[d.line - 1] + 2 - offsets[d.line])), hi = Math.min(...state.localX.map(offsets => state.xs[d.line + 1] + offsets[d.line + 1] - 2 - offsets[d.line])); state.xs[d.line] = Math.max(lo, Math.min(hi, p.x - state.localX[d.row][d.line])); }
-  else if (d.type === 'y') { const lo = Math.max(...state.localY.map(offsets => state.ys[d.line - 1] + offsets[d.line - 1] + 2 - offsets[d.line])), hi = Math.min(...state.localY.map(offsets => state.ys[d.line + 1] + offsets[d.line + 1] - 2 - offsets[d.line])); state.ys[d.line] = Math.max(lo, Math.min(hi, p.y - state.localY[d.col][d.line])); }
-  else if (d.type === 'xlocal') { const lo = state.xs[d.line - 1] + state.localX[d.row][d.line - 1] + 2, hi = state.xs[d.line + 1] + state.localX[d.row][d.line + 1] - 2; state.localX[d.row][d.line] = Math.max(lo, Math.min(hi, p.x)) - state.xs[d.line]; }
-  else if (d.type === 'ylocal') { const lo = state.ys[d.line - 1] + state.localY[d.col][d.line - 1] + 2, hi = state.ys[d.line + 1] + state.localY[d.col][d.line + 1] - 2; state.localY[d.col][d.line] = Math.max(lo, Math.min(hi, p.y)) - state.ys[d.line]; }
-  else if (d.type === 'move') { const dx = Math.max(-Math.min(...d.xs), Math.min(canvas.width - Math.max(...d.xs), p.x - d.start.x)), dy = Math.max(-Math.min(...d.ys), Math.min(canvas.height - Math.max(...d.ys), p.y - d.start.y)); state.xs = d.xs.map(x => x + dx); state.ys = d.ys.map(y => y + dy); }
-  else ({ xs: state.xs, ys: state.ys, localX: state.localX, localY: state.localY } = scaleGridFromCorner(d.xs, d.ys, d.localX, d.localY, d.corner, p.x, p.y, canvas.width, canvas.height));
+  if (d.type === 'image') { state.imageX = d.imageX + p.x - d.start.x; state.imageY = d.imageY + p.y - d.start.y; expandWorkspaceToImage(d); draw(); return; }
+  if (d.type === 'x') {
+    if (state.lockedX[d.row][d.line] == null) { const limits = state.localX.map((offsets, row) => state.lockedX[row][d.line] == null ? [state.xs[d.line - 1] + offsets[d.line - 1] + 2 - offsets[d.line], state.xs[d.line + 1] + offsets[d.line + 1] - 2 - offsets[d.line]] : [-Infinity, Infinity]); state.xs[d.line] = Math.max(Math.max(...limits.map(x => x[0])), Math.min(Math.min(...limits.map(x => x[1])), p.x - state.localX[d.row][d.line])); state.localX = applyLockedOffsets(state.xs, state.localX, state.lockedX); }
+  } else if (d.type === 'y') {
+    if (state.lockedY[d.col][d.line] == null) { const limits = state.localY.map((offsets, col) => state.lockedY[col][d.line] == null ? [state.ys[d.line - 1] + offsets[d.line - 1] + 2 - offsets[d.line], state.ys[d.line + 1] + offsets[d.line + 1] - 2 - offsets[d.line]] : [-Infinity, Infinity]); state.ys[d.line] = Math.max(Math.max(...limits.map(x => x[0])), Math.min(Math.min(...limits.map(x => x[1])), p.y - state.localY[d.col][d.line])); state.localY = applyLockedOffsets(state.ys, state.localY, state.lockedY); }
+  } else if (d.type === 'xlocal') { const lo = state.xs[d.line - 1] + state.localX[d.row][d.line - 1] + 2, hi = state.xs[d.line + 1] + state.localX[d.row][d.line + 1] - 2, value = Math.max(lo, Math.min(hi, p.x)); state.lockedX[d.row][d.line] = value; state.localX = applyLockedOffsets(state.xs, state.localX, state.lockedX); }
+  else if (d.type === 'ylocal') { const lo = state.ys[d.line - 1] + state.localY[d.col][d.line - 1] + 2, hi = state.ys[d.line + 1] + state.localY[d.col][d.line + 1] - 2, value = Math.max(lo, Math.min(hi, p.y)); state.lockedY[d.col][d.line] = value; state.localY = applyLockedOffsets(state.ys, state.localY, state.lockedY); }
+  else if (d.type === 'move') { const dx = Math.max(-Math.min(...d.xs), Math.min(canvas.width - Math.max(...d.xs), p.x - d.start.x)), dy = Math.max(-Math.min(...d.ys), Math.min(canvas.height - Math.max(...d.ys), p.y - d.start.y)); state.xs = d.xs.map(x => x + dx); state.ys = d.ys.map(y => y + dy); state.lockedX = d.lockedX.map(row => row.map(value => value == null ? null : value + dx)); state.lockedY = d.lockedY.map(col => col.map(value => value == null ? null : value + dy)); state.localX = applyLockedOffsets(state.xs, state.localX, state.lockedX); state.localY = applyLockedOffsets(state.ys, state.localY, state.lockedY); }
+  else { const scaled = scaleGridFromCorner(d.xs, d.ys, d.localX, d.localY, d.corner, p.x, p.y, canvas.width, canvas.height), scaleX = (scaled.xs.at(-1) - scaled.xs[0]) / (d.xs.at(-1) - d.xs[0]), scaleY = (scaled.ys.at(-1) - scaled.ys[0]) / (d.ys.at(-1) - d.ys[0]), fixedX = d.corner === 'tl' || d.corner === 'bl' ? d.xs.at(-1) : d.xs[0], fixedY = d.corner === 'tl' || d.corner === 'tr' ? d.ys.at(-1) : d.ys[0]; state.xs = scaled.xs; state.ys = scaled.ys; state.lockedX = d.lockedX.map(row => row.map(value => value == null ? null : fixedX + (value - fixedX) * scaleX)); state.lockedY = d.lockedY.map(col => col.map(value => value == null ? null : fixedY + (value - fixedY) * scaleY)); state.localX = applyLockedOffsets(state.xs, scaled.localX, state.lockedX); state.localY = applyLockedOffsets(state.ys, scaled.localY, state.lockedY); }
   draw();
 });
 function endDrag(event) { state.drag = null; state.hover = state.image && event ? hitTest(point(event)) : null; canvas.style.cursor = state.hover?.cursor || (state.image ? 'grab' : 'default'); if (state.image) draw(); }
 canvas.addEventListener('pointerup', endDrag);
 canvas.addEventListener('pointercancel', endDrag);
-canvas.addEventListener('wheel', event => { if (!state.image) return; event.preventDefault(); state.imageZoom = Math.max(.1, Math.min(4, state.imageZoom * (event.deltaY > 0 ? .9 : 1.1))); draw(); }, { passive: false });
+canvas.addEventListener('wheel', event => { if (!state.image) return; event.preventDefault(); const oldZoom = state.imageZoom, zoom = Math.max(.1, Math.min(4, oldZoom * (event.deltaY > 0 ? .9 : 1.1))); if (zoom === oldZoom) return; state.imageX += state.base.width * (oldZoom - zoom) / 2; state.imageY += state.base.height * (oldZoom - zoom) / 2; state.imageZoom = zoom; const drag = state.drag?.type === 'image' ? state.drag : null; if (drag) { drag.start = point(event); drag.imageX = state.imageX; drag.imageY = state.imageY; } expandWorkspaceToImage(drag); draw(); }, { passive: false });
 
 const imageTypes = new Set(['image/png', 'image/jpeg', 'image/webp']);
 function loadImageFile(file, displayName = file && file.name) {
   if (!file || !imageTypes.has(file.type)) return status('仅支持 PNG、JPEG 或 WebP 图片。');
   const url = URL.createObjectURL(file), image = new Image();
-  image.onload = () => { URL.revokeObjectURL(url); state.image = image; state.chars = []; $('paste').value = ''; $('note').value = ''; state.angle = 0; state.imageZoom = 1; $('angle').value = $('angleRange').value = 0; renderImage(true); fit(); status(`已载入：${displayName || '粘贴图片'}（${image.naturalWidth}×${image.naturalHeight}）`); };
+  image.onload = () => { URL.revokeObjectURL(url); state.image = image; state.chars = []; $('paste').value = ''; $('note').value = ''; state.angle = 0; state.imageZoom = 1; state.imageX = state.imageY = 0; $('angle').value = $('angleRange').value = 0; renderImage(true); fit(); status(`已载入：${displayName || '粘贴图片'}（${image.naturalWidth}×${image.naturalHeight}）`); };
   image.onerror = () => { URL.revokeObjectURL(url); status('图片加载失败，请换一张 PNG、JPEG 或 WebP。'); };
   image.src = url;
 }
@@ -131,7 +153,7 @@ function hasFiles(event) { return [...(event.dataTransfer?.types || [])].include
 wrap.addEventListener('dragover', event => { if (hasFiles(event)) { event.preventDefault(); wrap.classList.add('dragover'); } });
 wrap.addEventListener('dragleave', () => wrap.classList.remove('dragover'));
 wrap.addEventListener('drop', event => { if (!hasFiles(event)) return; event.preventDefault(); wrap.classList.remove('dragover'); loadImageFile([...event.dataTransfer.files].find(file => imageTypes.has(file.type)) || event.dataTransfer.files[0]); });
-function setAngle(value) { state.angle = Math.max(-15, Math.min(15, Number(value) || 0)); state.imageZoom = 1; $('angle').value = $('angleRange').value = state.angle; renderImage(true); fit(); if (state.image) status('旋转已应用，网格已重置。'); }
+function setAngle(value) { state.angle = Math.max(-15, Math.min(15, Number(value) || 0)); state.imageZoom = 1; state.imageX = state.imageY = 0; $('angle').value = $('angleRange').value = state.angle; renderImage(true); fit(); if (state.image) status('旋转已应用，网格已重置。'); }
 $('angleRange').addEventListener('input', e => setAngle(e.target.value)); $('angle').addEventListener('change', e => setAngle(e.target.value)); document.querySelectorAll('[data-angle]').forEach(b => b.addEventListener('click', () => setAngle(Number(b.dataset.angle) ? state.angle + Number(b.dataset.angle) : 0)));
 ['rows', 'cols'].forEach(id => $(id).addEventListener('change', () => { $(id).value = Math.max(1, Math.min(30, Math.trunc(Number($(id).value)) || 1)); makeGrid(); }));
 $('resetGrid').addEventListener('click', makeGrid); $('fit').addEventListener('click', fit);
